@@ -1,3 +1,5 @@
+version: '3.9'
+
 services:
   mysql:
     image: 'mysql:latest'
@@ -6,13 +8,36 @@ services:
       - 'MYSQL_ROOT_PASSWORD=root'
     ports:
       - '3306:3306'
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  maven:
+    image: 'maven:3.8.5-openjdk-17'
+    container_name: maven_container
+    volumes:
+      - .:/usr/src/mymaven
+    working_dir: /usr/src/mymaven
+    command: ["sh", "-c", "mvn clean package && touch /usr/src/mymaven/BUILD_COMPLETE"]
+    depends_on:
+      mysql:
+          condition: service_completed_successfully
+    healthcheck:
+      test: [ "CMD", "test", "-f", "/usr/src/mymaven/BUILD_COMPLETE" ]
+      interval: 10s
+      timeout: 5s
+      retries: 3
 
   springbootappexercise:
     build: .
     ports:
       - "8080:8080"
     depends_on:
-      - mysql
+      maven:
+        condition: service_completed_successfully
     environment:
-      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/mydatabase
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/dockerbaza
       SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: root
